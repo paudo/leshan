@@ -1,14 +1,18 @@
 package org.eclipse.leshan.client.demo;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Random;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
 import org.eclipse.leshan.client.request.ServerIdentity;
 import org.eclipse.leshan.client.resource.BaseInstanceEnabler;
 import org.eclipse.leshan.core.model.ObjectModel;
@@ -28,10 +32,10 @@ public class RandomTemperatureSensor extends BaseInstanceEnabler {
       .asList(SENSOR_VALUE, UNITS, MAX_MEASURED_VALUE,
           MIN_MEASURED_VALUE, RESET_MIN_MAX_MEASURED_VALUES);
   private final ScheduledExecutorService scheduler;
-  private final Random rng = new Random();
-  private double currentTemp = 20d;
+  private double currentTemp;
   private double minMeasuredValue = currentTemp;
   private double maxMeasuredValue = currentTemp;
+  private boolean first = true;
 
   public RandomTemperatureSensor() {
     this.scheduler = Executors
@@ -79,8 +83,29 @@ public class RandomTemperatureSensor extends BaseInstanceEnabler {
   }
 
   private synchronized void adjustTemperature() {
-    float delta = (rng.nextInt(20) - 10) / 10f;
-    currentTemp += delta;
+
+    try {
+      URL urlForGetRequest = new URL("http://127.0.0.1:5000/get-temperature");
+      String readLine = null;
+      HttpURLConnection conection = (HttpURLConnection) urlForGetRequest.openConnection();
+      conection.setRequestMethod("GET");
+      int responseCode = conection.getResponseCode();
+      if (responseCode == HttpURLConnection.HTTP_OK) {
+        BufferedReader in = new BufferedReader(
+            new InputStreamReader(conection.getInputStream()));
+        StringBuilder response = new StringBuilder();
+        while ((readLine = in.readLine()) != null) {
+          response.append(readLine);
+        }
+        in.close();
+        JsonElement root = new JsonParser().parse(response.toString());
+        currentTemp = root.getAsJsonObject().get("temperature").getAsDouble();
+      } else {
+        System.out.println("GET NOT WORKED");
+      }
+    } catch (Exception e) {
+      System.out.println(e.getMessage());
+    }
     Integer changedResource = adjustMinMaxMeasuredValue(currentTemp);
     if (changedResource != null) {
       fireResourcesChange(SENSOR_VALUE, changedResource);
@@ -94,7 +119,8 @@ public class RandomTemperatureSensor extends BaseInstanceEnabler {
     if (newTemperature > maxMeasuredValue) {
       maxMeasuredValue = newTemperature;
       return MAX_MEASURED_VALUE;
-    } else if (newTemperature < minMeasuredValue) {
+    } else if (newTemperature < minMeasuredValue || first) {
+      first = false;
       minMeasuredValue = newTemperature;
       return MIN_MEASURED_VALUE;
     } else {
