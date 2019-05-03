@@ -13,7 +13,6 @@ import java.security.cert.X509Certificate;
 import java.security.interfaces.ECPublicKey;
 import java.util.Arrays;
 import java.util.List;
-//import java.util.Scanner;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
@@ -447,13 +446,5 @@ public class LeshanClientDemo {
         client.destroy(true); // send de-registration request before destroy
       }
     });
-
-//    // Change the location through the Console
-//    try (Scanner scanner = new Scanner(System.in)) {
-//      while (scanner.hasNext()) {
-//        String nextMove = scanner.next();
-//        locationInstance.moveLocation(nextMove);
-//      }
-//    }
   }
 }
